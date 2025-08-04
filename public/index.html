@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI助手管理后台</title>
+    <script src="https://js.pusher.com/7.0/pusher.min.js"></script>
+    <style>
+        .admin-container {
+            display: flex;
+            height: 100vh;
+            font-family: Arial, sans-serif;
+        }
+        
+        .question-list {
+            width: 30%;
+            border-right: 1px solid #eee;
+            overflow-y: auto;
+        }
+        
+        .question-item {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+        
+        .question-item.active {
+            background: #e3f2fd;
+        }
+        
+        .chat-interface {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .chat-header {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            background: #f5f5f5;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .message {
+            margin-bottom: 10px;
+            padding: 10px 15px;
+            border-radius: 18px;
+            max-width: 80%;
+        }
+        
+        .user-message {
+            background: #e3f2fd;
+            margin-right: auto;
+        }
+        
+        .admin-message {
+            background: #dcf8c6;
+            margin-left: auto;
+        }
+        
+        .answer-area {
+            padding: 15px;
+            border-top: 1px solid #eee;
+        }
+        
+        textarea {
+            width: 100%;
+            height: 100px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            resize: vertical;
+        }
+        
+        button {
+            margin-top: 10px;
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <div class="question-list" id="questionList">
+            <h3 style="padding: 15px; margin: 0;">待回答问题</h3>
+            <!-- 问题列表会动态加载 -->
+        </div>
+        
+        <div class="chat-interface" id="chatInterface" style="display: none;">
+            <div class="chat-header">
+                <h3 id="userInfo">用户信息</h3>
+                <p id="ipInfo">IP: 加载中...</p>
+            </div>
+            
+            <div class="chat-messages" id="adminChatBox">
+                <!-- 聊天消息会动态加载 -->
+            </div>
+            
+            <div class="answer-area">
+                <textarea id="answerInput" placeholder="输入AI回复..."></textarea>
+                <button onclick="sendAnswer()">发送回复</button>
+                <button onclick="simulateTyping()" style="background: #2196F3;">模拟输入</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 初始化Pusher
+        const pusher = new Pusher('YOUR_PUSHER_KEY', {
+            cluster: 'YOUR_CLUSTER',
+            encrypted: true
+        });
+        
+        // 订阅管理员频道
+        const adminChannel = pusher.subscribe('private-admin');
+        let currentQuestion = null;
+        
+        // 监听新问题
+        adminChannel.bind('new-question', (data) => {
+            addQuestionToList(data);
+        });
+        
+        // 加载问题列表
+        async function loadQuestions() {
+            const response = await fetch('/api/questions');
+            const questions = await response.json();
+            
+            const list = document.getElementById('questionList');
+            questions.forEach(q => addQuestionToList(q));
+        }
+        
+        // 添加问题到列表
+        function addQuestionToList(question) {
+            const list = document.getElementById('questionList');
+            
+            const item = document.createElement('div');
+            item.className = 'question-item';
+            item.dataset.id = question.id;
+            item.innerHTML = `
+                <strong>${question.email}</strong>
+                <p>${question.content.substring(0, 50)}${question.content.length > 50 ? '...' : ''}</p>
+                <small>${new Date(question.created_at).toLocaleString()}</small>
+            `;
+            
+            item.addEventListener('click', () => openQuestion(question));
+            list.appendChild(item);
+        }
+        
+        // 打开问题
+        function openQuestion(question) {
+            currentQuestion = question;
+            
+            // 更新UI
+            document.querySelectorAll('.question-item').forEach(item => {
+                item.classList.toggle('active', item.dataset.id === question.id);
+            });
+            
+            document.getElementById('chatInterface').style.display = 'flex';
+            document.getElementById('userInfo').textContent = question.email;
+            document.getElementById('ipInfo').textContent = `IP: ${question.ip}`;
+            
+            // 加载聊天历史
+            const chatBox = document.getElementById('adminChatBox');
+            chatBox.innerHTML = '';
+            
+            const userMsg = document.createElement('div');
+            userMsg.className = 'message user-message';
+            userMsg.textContent = question.content;
+            chatBox.appendChild(userMsg);
+        }
+        
+        // 模拟输入
+        function simulateTyping() {
+            if (!currentQuestion) return;
+            
+            const text = document.getElementById('answerInput').value;
+            if (!text) return;
+            
+            // 发送打字效果给用户
+            fetch('/api/pusher/typing', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: currentQuestion.user_id,
+                    text
+                })
+            });
+        }
+        
+        // 发送答案
+        async function sendAnswer() {
+            if (!currentQuestion) return;
+            
+            const answer = document.getElementById('answerInput').value.trim();
+            if (!answer) return;
+            
+            // 发送最终答案
+            await fetch(`/api/questions/${currentQuestion.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ answer })
+            });
+            
+            // 添加到聊天框
+            const adminMsg = document.createElement('div');
+            adminMsg.className = 'message admin-message';
+            adminMsg.textContent = answer;
+            document.getElementById('adminChatBox').appendChild(adminMsg);
+            
+            // 清空输入框
+            document.getElementById('answerInput').value = '';
+        }
+        
+        // 初始化加载问题
+        loadQuestions();
+    </script>
+</body>
+</html>

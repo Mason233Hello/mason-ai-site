@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI聊天助手</title>
+    <script src="https://js.pusher.com/7.0/pusher.min.js"></script>
+    <style>
+        .chat-container {
+            max-width: 800px;
+            margin: 0 auto;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f9f9f9;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            border-radius: 18px;
+            max-width: 80%;
+        }
+        
+        .user-message {
+            background: #dcf8c6;
+            margin-left: auto;
+        }
+        
+        .ai-message {
+            background: white;
+            margin-right: auto;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .typing-indicator {
+            display: inline-block;
+            padding: 10px 15px;
+            background: white;
+            border-radius: 18px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .input-area {
+            padding: 15px;
+            border-top: 1px solid #e0e0e0;
+            background: white;
+        }
+        
+        input {
+            width: 85%;
+            padding: 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 24px;
+            font-size: 16px;
+        }
+        
+        button {
+            padding: 12px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 24px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-messages" id="chatBox">
+            <div class="message ai-message">
+                你好！我是AI助手，有什么可以帮你的吗？
+            </div>
+        </div>
+        
+        <div class="input-area">
+            <input type="text" id="questionInput" placeholder="输入你的问题...">
+            <button onclick="sendQuestion()">发送</button>
+        </div>
+    </div>
+
+    <script>
+        // 初始化Pusher
+        const pusher = new Pusher('YOUR_PUSHER_KEY', {
+            cluster: 'YOUR_CLUSTER',
+            encrypted: true
+        });
+        
+        // 订阅用户专属频道
+        const userId = localStorage.getItem('user_id');
+        const channel = pusher.subscribe(`private-${userId}`);
+        
+        // 监听AI回复
+        channel.bind('ai-answer', (data) => {
+            if (data.typing) {
+                // 显示打字效果
+                let typingIndicator = document.getElementById('typing-indicator');
+                if (!typingIndicator) {
+                    typingIndicator = document.createElement('div');
+                    typingIndicator.id = 'typing-indicator';
+                    typingIndicator.className = 'message ai-message typing-indicator';
+                    typingIndicator.innerHTML = 'AI正在输入...';
+                    document.getElementById('chatBox').appendChild(typingIndicator);
+                }
+            } else if (data.final) {
+                // 显示最终答案
+                const typingIndicator = document.getElementById('typing-indicator');
+                if (typingIndicator) typingIndicator.remove();
+                
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message ai-message';
+                messageDiv.textContent = data.answer;
+                document.getElementById('chatBox').appendChild(messageDiv);
+            }
+        });
+        
+        // 发送问题
+        async function sendQuestion() {
+            const question = document.getElementById('questionInput').value.trim();
+            if (!question) return;
+            
+            // 添加用户消息到聊天框
+            const userMessage = document.createElement('div');
+            userMessage.className = 'message user-message';
+            userMessage.textContent = question;
+            document.getElementById('chatBox').appendChild(userMessage);
+            
+            // 清空输入框
+            document.getElementById('questionInput').value = '';
+            
+            // 发送问题到服务器
+            await fetch('/api/questions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question })
+            });
+        }
+    </script>
+</body>
+</html>
