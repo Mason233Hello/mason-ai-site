@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI助手 - 管理员后台</title>
+    <script src="https://js.pusher.com/7.0/pusher.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        :root {
+            --primary: #4361ee;
+            --secondary: #3a0ca3;
+            --success: #4cc9f0;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --gray: #6c757d;
+            --danger: #e63946;
+            --warning: #fca311;
+            --sidebar-width: 280px;
+        }
+        
+        body {
+            background-color: #f0f2f5;
+            color: var(--dark);
+            display: flex;
+            min-height: 100vh;
+        }
+        
+        /* 侧边栏样式 */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 20px 0;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            z-index: 100;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            padding: 0 20px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .logo i {
+            font-size: 28px;
+            margin-right: 12px;
+        }
+        
+        .logo h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+        
+        .sidebar-menu {
+            padding: 20px 0;
+        }
+        
+        .menu-item {
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .menu-item:hover, .menu-item.active {
+            background: rgba(255, 255, 255, 0.1);
+            border-left: 4px solid white;
+        }
+        
+        .menu-item i {
+            margin-right: 12px;
+            font-size: 18px;
+        }
+        
+        /* 主内容区 */
+        .main-content {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            padding: 20px;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            margin-bottom: 25px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .header h2 {
+            font-size: 24px;
+            color: var(--primary);
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+        }
+        
+        .user-info img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-right: 10px;
+            object-fit: cover;
+            background-color: var(--primary);
+            padding: 8px;
+        }
+        
+        /* 仪表盘卡片 */
+        .dashboard-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .card-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        
+        .questions .card-icon { background: rgba(67, 97, 238, 0.2); color: var(--primary); }
+        .pending .card-icon { background: rgba(252, 163, 17, 0.2); color: var(--warning); }
+        .users .card-icon { background: rgba(76, 201, 240, 0.2); color: var(--success); }
+        
+        .card h3 {
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+        
+        .card p {
+            color: var(--gray);
+            font-size: 14px;
+        }
+        
+        /* 问题列表 */
+        .questions-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .section-header h3 {
+            font-size: 20px;
+            color: var(--dark);
+        }
+        
+        .search-box {
+            display: flex;
+            background: #f8f9fa;
+            border-radius: 30px;
+            padding: 8px 15px;
+            width: 250px;
+        }
+        
+        .search-box input {
+            background: transparent;
+            border: none;
+            outline: none;
+            width: 100%;
+            padding: 5px;
+        }
+        
+        .questions-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .questions-table th, .questions-table td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .questions-table th {
+            color: var(--gray);
+            font-weight: 500;
+        }
+        
+        .questions-table tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .user-cell {
+            display: flex;
+            align-items: center;
+        }
+        
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        
+        .status-badge {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .pending-badge {
+            background: rgba(252, 163, 17, 0.2);
+            color: var(--warning);
+        }
+        
+        .answered-badge {
+            background: rgba(76, 201, 240, 0.2);
+            color: var(--success);
+        }
+        
+        .action-btn {
+            padding: 8px 15px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .action-btn:hover {
+            background: var(--secondary);
+        }
+        
+        /* 聊天界面 */
+        .chat-container {
+            display: flex;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+            height: 500px;
+        }
+        
+        .chat-sidebar {
+            width: 35%;
+            border-right: 1px solid #eee;
+            overflow-y: auto;
+        }
+        
+        .chat-header {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            background: #f8f9fa;
+        }
+        
+        .chat-list {
+            padding: 0;
+        }
+        
+        .chat-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            transition: background 0.3s;
+        }
+        
+        .chat-item:hover, .chat-item.active {
+            background: #f0f7ff;
+        }
+        
+        .chat-item .user-avatar {
+            margin-right: 15px;
+        }
+        
+        .chat-content {
+            flex: 1;
+        }
+        
+        .chat-item .user-name {
+            font-weight: 500;
+            margin-bottom: 5px;
+        }
+        
+        .chat-item .message-preview {
+            color: var(--gray);
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .chat-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .chat-conversation {
+            padding: 20px;
+            flex: 1;
+            overflow-y: auto;
+            background: #fafbfc;
+        }
+        
+        .message {
+            max-width: 70%;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        
+        .message.user {
+            margin-left: auto;
+        }
+        
+        .message-bubble {
+            padding: 15px;
+            border-radius: 18px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+        
+        .message.user .message-bubble {
+            background: var(--primary);
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+        
+        .message.admin .message-bubble {
+            background: white;
+            border: 1px solid #eee;
+            border-bottom-left-radius: 5px;
+        }
+        
+        .message-time {
+            font-size: 12px;
+            color: var(--gray);
+            margin-top: 5px;
+            text-align: right;
+        }
+        
+        .typing-indicator {
+            background: white;
+            border: 1px solid #eee;
+            border-radius: 18px;
+            padding: 15px;
+            margin: 10px 0;
+            display: inline-block;
+            color: var(--gray);
+            font-style: italic;
+        }
+        
+        .chat-input {
+            padding: 15px;
+            border-top: 1px solid #eee;
+            background: white;
+            display: flex;
+            align-items: center;
+        }
+        
+        .chat-input textarea {
+            flex: 1;
+            border: 1px solid #eee;
+            border-radius: 24px;
+            padding: 12px 20px;
+            resize: none;
+            height: 50px;
+            outline: none;
+            transition: border 0.3s;
+        }
+        
+        .chat-input textarea:focus {
+            border-color: var(--primary);
+        }
+        
+        .send-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            border: none;
+            margin-left: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.3s;
+        }
+        
+        .send-btn:hover {
+            background: var(--secondary);
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 992px) {
+            .sidebar {
+                width: 80px;
+            }
+            
+            .logo h1, .menu-item span {
+                display: none;
+            }
+            
+            .logo {
+                justify-content: center;
+            }
+            
+            .menu-item {
+                justify-content: center;
+            }
+            
+            .menu-item i {
+                margin-right: 0;
+                font-size: 24px;
+            }
+            
+            .main-content {
+                margin-left: 80px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .chat-container {
+                flex-direction: column;
+                height: auto;
+            }
+            
+            .chat-sidebar, .chat-main {
+                width: 100%;
+            }
+            
+            .dashboard-cards {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 侧边导航 -->
+    <div class="sidebar">
+        <div class="logo">
+            <i class="fas fa-robot"></i>
+            <h1>AI助手管理</h1>
+        </div>
+        
+        <div class="sidebar-menu">
+            <div class="menu-item active">
+                <i class="fas fa-home"></i>
+                <span>控制面板</span>
+            </div>
+            <div class="menu-item">
+                <i class="fas fa-comments"></i>
+                <span>用户问题</span>
+            </div>
+            <div class="menu-item">
+                <i class="fas fa-users"></i>
+                <span>用户管理</span>
+            </div>
+            <div class="menu-item">
+                <i class="fas fa-chart-line"></i>
+                <span>数据分析</span>
+            </div>
+            <div class="menu-item">
+                <i class="fas fa-cog"></i>
+                <span>系统设置</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 主内容区 -->
+    <div class="main-content">
+        <!-- 头部 -->
+        <div class="header">
+            <h2>控制面板</h2>
+            <div class="user-info">
+                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 24 24'%3E%3Cpath fill='%23ffffff' d='M12 12q-1.65 0-2.825-1.175T8 8q0-1.65 1.175-2.825T12 4q1.65 0 2.825 1.175T16 8q0 1.65-1.175 2.825T12 12Zm-8 8v-2.8q0-.85.438-1.563T5.6 14.55q1.55-.775 3.15-1.163T12 13q1.65 0 3.25.388t3.15 1.162q.725.375 1.163 1.088T20 17.2V20H4Z'/%3E%3C/svg%3E" alt="管理员">
+                <div>
+                    <h4>管理员</h4>
+                    <p>超级管理员</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 仪表盘卡片 -->
+        <div class="dashboard-cards">
+            <div class="card questions">
+                <div class="card-header">
+                    <div>
+                        <h3>142</h3>
+                        <p>总问题数</p>
+                    </div>
+                    <div class="card-icon">
+                        <i class="fas fa-question-circle"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card pending">
+                <div class="card-header">
+                    <div>
+                        <h3>24</h3>
+                        <p>待回答问题</p>
+                    </div>
+                    <div class="card-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card users">
+                <div class="card-header">
+                    <div>
+                        <h3>86</h3>
+                        <p>活跃用户</p>
+                    </div>
+                    <div class="card-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 问题列表 -->
+        <div class="questions-container">
+            <div class="section-header">
+                <h3>最近的问题</h3>
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" placeholder="搜索问题...">
+                </div>
+            </div>
+            
+            <table class="questions-table">
+                <thead>
+                    <tr>
+                        <th>用户</th>
+                        <th>问题内容</th>
+                        <th>IP地址</th>
+                        <th>时间</th>
+                        <th>状态</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>
+                            <div class="user-cell">
+                                <div class="user-avatar">J</div>
+                                <div>john@example.com</div>
+                            </div>
+                        </td>
+                        <td>如何学习人工智能？</td>
+                        <td>192.168.1.101</td>
+                        <td>2023-10-15 14:30</td>
+                        <td><span class="status-badge pending-badge">待回复</span></td>
+                        <td><button class="action-btn">回复</button></td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="user-cell">
+                                <div class="user-avatar">M</div>
+                                <div>mary@domain.com</div>
+                            </div>
+                        </td>
+                        <td>Python和JavaScript哪个更适合初学者？</td>
+                        <td>172.217.16.142</td>
+                        <td>2023-10-14 09:45</td>
+                        <td><span class="status-badge answered-badge">已回复</span></td>
+                        <td><button class="action-btn">查看</button></td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="user-cell">
+                                <div class="user-avatar">S</div>
+                                <div>sam@test.org</div>
+                            </div>
+                        </td>
+                        <td>推荐一些机器学习在线课程</td>
+                        <td>203.0.113.50</td>
+                        <td>2023-10-13 18:20</td>
+                        <td><span class="status-badge pending-badge">待回复</span></td>
+                        <td><button class="action-btn">回复</button></td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="user-cell">
+                                <div class="user-avatar">T</div>
+                                <div>tom@ai.com</div>
+                            </div>
+                        </td>
+                        <td>如何搭建自己的聊天机器人？</td>
+                        <td>104.244.42.129</td>
+                        <td>2023-10-12 11:15</td>
+                        <td><span class="status-badge answered-badge">已回复</span></td>
+                        <td><button class="action-btn">查看</button></td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="user-cell">
+                                <div class="user-avatar">E</div>
+                                <div>emma@web.net</div>
+                            </div>
+                        </td>
+                        <td>解释一下神经网络的工作原理</td>
+                        <td>198.51.100.22</td>
+                        <td>2023-10-11 16:50</td>
+                        <td><span class="status-badge pending-badge">待回复</span></td>
+                        <td><button class="action-btn">回复</button></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- 聊天界面 -->
+        <div class="chat-container">
+            <div class="chat-sidebar">
+                <div class="chat-header">
+                    <h3>在线用户</h3>
+                </div>
+                <ul class="chat-list">
+                    <li class="chat-item active">
+                        <div class="user-avatar">J</div>
+                        <div class="chat-content">
+                            <div class="user-name">john@example.com</div>
+                            <div class="message-preview">如何学习人工智能？</div>
+                        </div>
+                    </li>
+                    <li class="chat-item">
+                        <div class="user-avatar">S</div>
+                        <div class="chat-content">
+                            <div class="user-name">sam@test.org</div>
+                            <div class="message-preview">推荐一些机器学习在线课程</div>
+                        </div>
+                    </li>
+                    <li class="chat-item">
+                        <div class="user-avatar">E</div>
+                        <div class="chat-content">
+                            <div class="user-name">emma@web.net</div>
+                            <div class="message-preview">解释一下神经网络的工作原理</div>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="chat-main">
+                <div class="chat-conversation">
+                    <div class="message user">
+                        <div class="message-bubble">你好，我想问一下如何从零开始学习人工智能？需要哪些基础？</div>
+                        <div class="message-time">2023-10-15 14:30</div>
+                    </div>
+                    
+                    <div class="message admin">
+                        <div class="message-bubble">你好！学习人工智能可以从以下几个方面开始...</div>
+                        <div class="message-time">2023-10-15 14:35</div>
+                    </div>
+                    
+                    <div class="typing-indicator">AI助手正在输入...</div>
+                </div>
+                
+                <div class="chat-input">
+                    <textarea placeholder="输入回复内容..."></textarea>
+                    <button class="send-btn">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 初始化Pusher
+        const pusher = new Pusher('YOUR_PUSHER_KEY', {
+            cluster: 'YOUR_CLUSTER',
+            encrypted: true
+        });
+        
+        // 模拟数据
+        const questions = [
+            {
+                id: 1,
+                user_id: 'user1',
+                email: 'john@example.com',
+                content: '如何学习人工智能？',
+                ip: '192.168.1.101',
+                timestamp: '2023-10-15 14:30',
+                status: 'pending'
+            },
+            {
+                id: 2,
+                user_id: 'user2',
+                email: 'mary@domain.com',
+                content: 'Python和JavaScript哪个更适合初学者？',
+                ip: '172.217.16.142',
+                timestamp: '2023-10-14 09:45',
+                status: 'answered'
+            },
+            {
+                id: 3,
+                user_id: 'user3',
+                email: 'sam@test.org',
+                content: '推荐一些机器学习在线课程',
+                ip: '203.0.113.50',
+                timestamp: '2023-10-13 18:20',
+                status: 'pending'
+            }
+        ];
+        
+        // 加载问题列表
+        function loadQuestions() {
+            const tbody = document.querySelector('.questions-table tbody');
+            tbody.innerHTML = '';
+            
+            questions.forEach(q => {
+                const firstLetter = q.email.charAt(0).toUpperCase();
+                const statusClass = q.status === 'pending' ? 'pending-badge' : 'answered-badge';
+                const statusText = q.status === 'pending' ? '待回复' : '已回复';
+                const actionText = q.status === 'pending' ? '回复' : '查看';
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <div class="user-cell">
+                            <div class="user-avatar">${firstLetter}</div>
+                            <div>${q.email}</div>
+                        </div>
+                    </td>
+                    <td>${q.content}</td>
+                    <td>${q.ip}</td>
+                    <td>${q.timestamp}</td>
+                    <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                    <td><button class="action-btn" data-id="${q.id}">${actionText}</button></td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+            
+            // 添加按钮事件
+            document.querySelectorAll('.action-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const questionId = btn.getAttribute('data-id');
+                    openQuestion(questionId);
+                });
+            });
+        }
+        
+        // 打开问题聊天
+        function openQuestion(questionId) {
+            const question = questions.find(q => q.id == questionId);
+            if (!question) return;
+            
+            // 更新聊天界面
+            const chatConversation = document.querySelector('.chat-conversation');
+            chatConversation.innerHTML = `
+                <div class="message user">
+                    <div class="message-bubble">${question.content}</div>
+                    <div class="message-time">${question.timestamp}</div>
+                </div>
+                <div class="typing-indicator">AI助手正在输入...</div>
+            `;
+            
+            // 高亮选中的用户
+            document.querySelectorAll('.chat-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            const firstLetter = question.email.charAt(0).toUpperCase();
+            document.querySelectorAll('.chat-item').forEach(item => {
+                if (item.querySelector('.user-avatar').textContent === firstLetter) {
+                    item.classList.add('active');
+                }
+            });
+            
+            // 模拟管理员输入
+            simulateTyping();
+        }
+        
+        // 模拟输入效果
+        function simulateTyping() {
+            const typingIndicator = document.querySelector('.typing-indicator');
+            const finalAnswer = "学习人工智能可以从以下几个方面开始：\n\n1. 数学基础：线性代数、概率论、微积分\n2. 编程基础：Python是首选语言\n3. 机器学习基础：监督学习、无监督学习\n4. 深度学习：神经网络、CNN、RNN\n5. 实践项目：从简单项目开始逐步深入";
+            
+            let currentText = '';
+            let index = 0;
+            
+            const typingInterval = setInterval(() => {
+                if (index < finalAnswer.length) {
+                    currentText += finalAnswer.charAt(index);
+                    typingIndicator.textContent = "AI助手正在输入...\n\n" + currentText;
+                    index++;
+                } else {
+                    clearInterval(typingInterval);
+                    
+                    // 添加最终回复
+                    setTimeout(() => {
+                        typingIndicator.remove();
+                        const chatConversation = document.querySelector('.chat-conversation');
+                        
+                        const adminMessage = document.createElement('div');
+                        adminMessage.className = 'message admin';
+                        adminMessage.innerHTML = `
+                            <div class="message-bubble">${finalAnswer}</div>
+                            <div class="message-time">${new Date().toLocaleString()}</div>
+                        `;
+                        
+                        chatConversation.appendChild(adminMessage);
+                    }, 1000);
+                }
+            }, 50);
+        }
+        
+        // 发送按钮事件
+        document.querySelector('.send-btn').addEventListener('click', () => {
+            const textarea = document.querySelector('.chat-input textarea');
+            const message = textarea.value.trim();
+            
+            if (message) {
+                const chatConversation = document.querySelector('.chat-conversation');
+                
+                const adminMessage = document.createElement('div');
+                adminMessage.className = 'message admin';
+                adminMessage.innerHTML = `
+                    <div class="message-bubble">${message}</div>
+                    <div class="message-time">${new Date().toLocaleString()}</div>
+                `;
+                
+                chatConversation.appendChild(adminMessage);
+                textarea.value = '';
+                
+                // 滚动到底部
+                chatConversation.scrollTop = chatConversation.scrollHeight;
+            }
+        });
+        
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            loadQuestions();
+            
+            // 默认打开第一个问题
+            setTimeout(() => {
+                document.querySelector('.action-btn').click();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
